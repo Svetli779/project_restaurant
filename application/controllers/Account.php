@@ -19,28 +19,35 @@ class Account  extends CI_Controller{
     
     
     public function login(){
-        // load model account login
-                
+        // load model account-login and check for active account
+        
         $validation = $this->form_validation;
         $validation->set_rules('username_log','User Name','trim|required|min_length[3]|max_length[32]');
         $validation->set_rules('password_log','Password','trim|required|min_length[5]|max_length[32]');
         if($validation->run()){
-            if($this->account_model->login()){
-                $data = array(
-                    'is_logged' => TRUE,
-                    'username' => $this->input->post('username_log'),
-                    'user_id' => $this->account_model->login()
-                );
-                $this->session->set_userdata($data);
-                redirect('/home/');
+            $result = $this->account_model->login();
+            if($result){
+                if($result->activ == 1){
+                    $data = array(
+                        'is_logged' => TRUE,
+                        'username' => $this->input->post('username_log'),
+                        'user_id' => $result->user_id
+                    );
+                    $this->session->set_userdata($data);
+                    redirect('/home/');
+                }
+                else{
+                    $this->session->set_flashdata('errmsg','Please check your email and activate your account!');
+                    $this->index();
+                }
             }
-            else {
+            else{
                 $this->session->set_flashdata('errmsg','Wrong username or password!');
                 $this->index();
             }
         }
-        else {
-                $this->index();
+        else{
+            $this->index();
         }
     }
     
@@ -48,7 +55,13 @@ class Account  extends CI_Controller{
     public function register(){
 
         //load model account register
-   
+        $length = 32;
+        $string = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $stringLength = strlen($string);
+        $randomPass = '';
+        for ($i = 0; $i < $length; $i++) {
+            $randomPass .= $string[rand(0, $stringLength - 1)];
+        }
         $validation = $this->form_validation;
         $validation->set_rules('username','User Name','trim|required|min_length[5]|max_length[32]');
         $validation->set_rules('firstname','First Name','trim|required|min_length[3]|max_length[32]');
@@ -57,8 +70,28 @@ class Account  extends CI_Controller{
         $validation->set_rules('password','Password','trim|required|min_length[5]|max_length[32]|matches[repassword]');
         $validation->set_rules('repassword','Repeat Password','trim|required|min_length[5]|max_length[32]');
         if($validation->run()){
-            if($this->account_model->register()){
-                $this->session->set_flashdata('register','Your account was successfully created !');
+            if($this->account_model->register($randomPass)){
+                $this->session->set_flashdata('register','Your account was successfully created ! Check your email for activate your account.');
+                $myemail = 'dimitrov.s.3ds@gmail.com';
+                $config = array(
+                    'protocol'  => 'smtp',
+                    'smtp_host' => 'ssl://smtp.googlemail.com',
+                    'smtp_port' => 465,
+                    'smtp_user' => $myemail,
+                    'smtp_pass' => ''
+                );
+                $subject = 'Activation code !';
+                $name = 'Admin';
+                $email = $this->input->post('email');
+                $site = base_url('Account/activisation/'.$email.'/'.$randomPass.'/');
+                $message ='To activate your account click the link below:' .$site. ' Thank you.';
+                $this->load->library('email',$config);
+                $this->email->set_newline("\r\n");
+                $this->email->from($myemail,$name);
+                $this->email->to($email);
+                $this->email->subject($subject);
+                $this->email->message($message);
+                $this->email->send();
                 redirect('/home/');
             }
             else{
@@ -324,4 +357,26 @@ class Account  extends CI_Controller{
         $data['main_content'] = 'register';
         $this->load->view('theme_default/content',$data);
     }
+    
+    public function activisation(){
+        $email      = strip_slashes(trim($this->uri->segment(3)));
+        $activ_code = strip_slashes(trim($this->uri->segment(4)));
+        if(strlen($activ_code)==32){
+            if($this->account_model->activate($email,$activ_code)){
+                echo 'You are active your account.';
+                $data['main_content'] = 'activate_account';
+                $this->load->view('theme_default/content',$data);
+            }
+            else{
+                $data['main_content'] = 'error_activation';
+                $this->load->view('theme_default/content',$data);
+            }
+        }
+        else{
+            $data['main_content'] = 'error_activation';
+            $this->load->view('theme_default/content',$data);
+        }
+
+    }
+    
 }

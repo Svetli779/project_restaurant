@@ -16,18 +16,19 @@ class Account_model extends CI_Model{
         $this->db->where('username',$username);
         $this->db->where('password',$password);
         $query = $this->db->get('users');
+        //
         if($query->num_rows() == 1){
             foreach ($query->result() as $row){
-                return  $row->user_id;
+                return  $row;
             }
             return TRUE;
         }
-        else {
+        else{
             return FALSE;
         }
     }
     
-    public function register(){
+    public function register($randomPass){
         //create user and recording in DB
         $username = $this->input->post('username');
         $fname = $this->input->post('firstname');
@@ -35,11 +36,12 @@ class Account_model extends CI_Model{
         $email = $this->input->post('email');
         $pass = md5($this->input->post('password'));
         $data = array(
-            'username' =>  $username,
-            'fname'    =>  $fname,
-            'lname'    =>  $lname,
-            'email'    =>  $email,
-            'password' =>  $pass
+            'username'        =>  $username,
+            'fname'           =>  $fname,
+            'lname'           =>  $lname,
+            'email'           =>  $email,
+            'password'        =>  $pass,
+            'activation_code' => $randomPass
         );
         
         $this->db->where('username',$username);
@@ -194,7 +196,7 @@ class Account_model extends CI_Model{
         }
     }
     
-        public function email_find($email){
+    public function email_find($email){
         $this->db->where('email',$email);
         $query = $this->db->get('users');
         if($query->num_rows() == 0){
@@ -204,4 +206,22 @@ class Account_model extends CI_Model{
             return FALSE;
         }
     }
+    
+    public function activate($email,$activ_code){
+        $this->db->where('email',$email);
+        $this->db->where('activation_code',$activ_code);
+        $query = $this->db->get('users');
+        $data = array(
+            'activ'=>1
+        );
+        if($query->num_rows() == 1){
+            $this->db->where('email',$email);
+            $this->db->update('users',$data);
+            return TRUE;
+        }
+        else{
+            return FALSE;
+        }
+    }
+    
 }
